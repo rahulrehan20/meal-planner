@@ -24,7 +24,6 @@ const assignDialog = document.querySelector("#assignDialog");
 const assignForm = document.querySelector("#assignForm");
 const assignSlotLabel = document.querySelector("#assignSlotLabel");
 const mealSelect = document.querySelector("#mealSelect");
-const clearSlotButton = document.querySelector("#clearSlotButton");
 
 document.querySelector("#addMealButton").addEventListener("click", () => {
   mealForm.reset();
@@ -77,13 +76,6 @@ assignForm.addEventListener("submit", async event => {
     return;
   }
 
-  if (event.submitter?.value === "clear") {
-    delete state.assignments[slot.key];
-    await saveData("Meal cleared");
-    assignDialog.close();
-    return;
-  }
-
   const mealId = mealSelect.value;
   if (!mealId) {
     return;
@@ -98,7 +90,7 @@ async function loadData() {
   try {
     const response = await fetch("api.php");
     if (!response.ok) {
-      throw new Error(`Load failed: ${response.status}`);
+      throw new Error(await responseErrorMessage(response, "Load failed"));
     }
 
     const data = await response.json();
@@ -124,16 +116,29 @@ async function saveData(message) {
     });
 
     if (!response.ok) {
-      throw new Error(`Save failed: ${response.status}`);
+      throw new Error(await responseErrorMessage(response, "Save failed"));
     }
 
     await response.json();
     render();
     showToast(message);
   } catch (error) {
-    showToast("Could not save. Check folder permissions.");
+    showToast(error.message || "Could not save.");
     console.error(error);
   }
+}
+
+async function responseErrorMessage(response, fallback) {
+  try {
+    const data = await response.json();
+    if (data && typeof data.error === "string") {
+      return data.error;
+    }
+  } catch {
+    // The server may return an HTML/PHP error page instead of JSON.
+  }
+
+  return `${fallback}: ${response.status}`;
 }
 
 function render() {
@@ -174,7 +179,7 @@ function renderPlanner() {
       button.dataset.key = key;
       button.innerHTML = meal
         ? `<span class="meal-name">${escapeHtml(meal.name)}</span>${meal.notes ? `<span class="meal-notes">${escapeHtml(meal.notes)}</span>` : ""}`
-        : `<span class="meal-name">Assign meal</span><span class="meal-notes">Click to select from saved meals</span>`;
+        : `<span class="add-mark">+</span><span class="add-label">Add</span>`;
       button.addEventListener("click", () => openAssignDialog({ key, day, date, mealType, meal }));
       plannerGrid.append(button);
     });
@@ -186,7 +191,6 @@ function renderMeals() {
   mealList.innerHTML = "";
 
   if (state.meals.length === 0) {
-    mealList.innerHTML = `<div class="empty-state">Use the + button to add meals, then click a weekly planner box to assign them.</div>`;
     return;
   }
 
@@ -218,7 +222,6 @@ function openAssignDialog(slot) {
     option.value = "";
     option.textContent = "Add a meal first";
     mealSelect.append(option);
-    clearSlotButton.disabled = !slot.meal;
   } else {
     state.meals
       .slice()
@@ -230,7 +233,6 @@ function openAssignDialog(slot) {
         option.selected = meal.id === state.assignments[slot.key];
         mealSelect.append(option);
       });
-    clearSlotButton.disabled = !slot.meal;
   }
 
   assignDialog.showModal();

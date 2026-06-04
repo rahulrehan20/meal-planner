@@ -3,7 +3,11 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#1f7a53">
     <title>Meal Planner</title>
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+    <link rel="manifest" href="site.webmanifest">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -48,7 +52,7 @@
       <form method="dialog" class="modal-panel" id="mealForm">
         <div class="modal-header">
           <h2>Add Meal</h2>
-          <button class="icon-button subtle" value="cancel" type="submit" aria-label="Close" title="Close">x</button>
+          <button class="icon-button subtle" value="cancel" type="submit" formnovalidate aria-label="Close" title="Close">x</button>
         </div>
         <label>
           Meal name
@@ -59,7 +63,7 @@
           <textarea id="mealNotesInput" name="mealNotes" rows="4" maxlength="500" placeholder="Optional ingredients, prep notes, or links"></textarea>
         </label>
         <div class="modal-actions">
-          <button class="button ghost" value="cancel" type="submit">Cancel</button>
+          <button class="button ghost" value="cancel" type="submit" formnovalidate>Cancel</button>
           <button class="button" id="saveMealButton" value="default" type="submit">Save meal</button>
         </div>
       </form>
@@ -72,16 +76,14 @@
             <p class="eyebrow" id="assignSlotLabel">Meal slot</p>
             <h2>Assign Meal</h2>
           </div>
-          <button class="icon-button subtle" value="cancel" type="submit" aria-label="Close" title="Close">x</button>
+          <button class="icon-button subtle" value="cancel" type="submit" formnovalidate aria-label="Close" title="Close">x</button>
         </div>
         <label>
           Saved meal
           <select id="mealSelect"></select>
         </label>
-        <div class="modal-actions split">
-          <button class="button danger" id="clearSlotButton" value="clear" type="submit">Clear</button>
-          <span></span>
-          <button class="button ghost" value="cancel" type="submit">Cancel</button>
+        <div class="modal-actions">
+          <button class="button ghost" value="cancel" type="submit" formnovalidate>Cancel</button>
           <button class="button" value="default" type="submit">Assign</button>
         </div>
       </form>

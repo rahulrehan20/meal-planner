@@ -94,10 +94,10 @@ function normalizeMeals(mixed $meals): array
         }
 
         $cleanMeals[] = [
-            'id' => mb_substr($id, 0, 80),
-            'name' => mb_substr($name, 0, 80),
-            'notes' => mb_substr(trim((string)($meal['notes'] ?? '')), 0, 500),
-            'createdAt' => mb_substr((string)($meal['createdAt'] ?? gmdate('c')), 0, 40),
+            'id' => truncateText($id, 80),
+            'name' => truncateText($name, 80),
+            'notes' => truncateText(trim((string)($meal['notes'] ?? '')), 500),
+            'createdAt' => truncateText((string)($meal['createdAt'] ?? gmdate('c')), 40),
         ];
     }
 
@@ -119,8 +119,17 @@ function normalizeAssignments(mixed $assignments): object
             continue;
         }
 
-        $cleanAssignments[$slotKey] = mb_substr($mealKey, 0, 80);
+        $cleanAssignments[$slotKey] = truncateText($mealKey, 80);
     }
 
     return (object)$cleanAssignments;
+}
+
+function truncateText(string $value, int $length): string
+{
+    if (function_exists('mb_substr')) {
+        return mb_substr($value, 0, $length);
+    }
+
+    return substr($value, 0, $length);
 }
