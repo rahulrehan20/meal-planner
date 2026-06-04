@@ -2,6 +2,9 @@
 declare(strict_types=1);
 
 header('Content-Type: application/json');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
 
 $dataDir = __DIR__ . DIRECTORY_SEPARATOR . 'data';
 $dataFile = $dataDir . DIRECTORY_SEPARATOR . 'meal-planner.json';
