@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Meal Planner</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="top-bar">
+        <div>
+          <p class="eyebrow">Weekly meals</p>
+          <h1>Meal Planner</h1>
+        </div>
+        <button class="icon-button primary" id="addMealButton" type="button" aria-label="Add meal" title="Add meal">
+          +
+        </button>
+      </header>
+
+      <section class="week-controls" aria-label="Week navigation">
+        <button class="icon-button" id="previousWeekButton" type="button" aria-label="Previous week" title="Previous week">
+          &lt;
+        </button>
+        <div class="week-title">
+          <strong id="weekLabel">Loading week</strong>
+          <span id="weekRange"></span>
+        </div>
+        <button class="icon-button" id="nextWeekButton" type="button" aria-label="Next week" title="Next week">
+          &gt;
+        </button>
+      </section>
+
+      <section class="planner-wrap" aria-label="Weekly meal planner">
+        <div class="planner-grid" id="plannerGrid"></div>
+      </section>
+
+      <section class="meal-bank" aria-label="Saved meals">
+        <div class="section-header">
+          <h2>Meals</h2>
+          <span id="mealCount">0 saved</span>
+        </div>
+        <div class="meal-list" id="mealList"></div>
+      </section>
+    </main>
+
+    <dialog class="modal" id="mealDialog">
+      <form method="dialog" class="modal-panel" id="mealForm">
+        <div class="modal-header">
+          <h2>Add Meal</h2>
+          <button class="icon-button subtle" value="cancel" type="submit" aria-label="Close" title="Close">x</button>
+        </div>
+        <label>
+          Meal name
+          <input id="mealNameInput" name="mealName" type="text" autocomplete="off" required maxlength="80" placeholder="Paneer rice bowl">
+        </label>
+        <label>
+          Notes
+          <textarea id="mealNotesInput" name="mealNotes" rows="4" maxlength="500" placeholder="Optional ingredients, prep notes, or links"></textarea>
+        </label>
+        <div class="modal-actions">
+          <button class="button ghost" value="cancel" type="submit">Cancel</button>
+          <button class="button" id="saveMealButton" value="default" type="submit">Save meal</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="assignDialog">
+      <form method="dialog" class="modal-panel" id="assignForm">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow" id="assignSlotLabel">Meal slot</p>
+            <h2>Assign Meal</h2>
+          </div>
+          <button class="icon-button subtle" value="cancel" type="submit" aria-label="Close" title="Close">x</button>
+        </div>
+        <label>
+          Saved meal
+          <select id="mealSelect"></select>
+        </label>
+        <div class="modal-actions split">
+          <button class="button danger" id="clearSlotButton" value="clear" type="submit">Clear</button>
+          <span></span>
+          <button class="button ghost" value="cancel" type="submit">Cancel</button>
+          <button class="button" value="default" type="submit">Assign</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
