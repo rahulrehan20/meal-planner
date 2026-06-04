@@ -210,9 +210,11 @@ h2 {
 }
 
 .planner-cell {
+  display: grid;
+  align-content: center;
   width: 100%;
   padding: 12px;
-  text-align: left;
+  text-align: center;
   background: var(--panel);
   color: var(--text);
 }
@@ -273,18 +275,12 @@ h2 {
 
 .meal-name {
   display: block;
-  margin-bottom: 6px;
   font-weight: 800;
 }
 
-.meal-notes {
-  display: -webkit-box;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 0.9rem;
-  line-height: 1.35;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+.meal-card-notes a {
+  color: var(--accent-dark);
+  font-weight: 700;
 }
 
 .meal-bank {
@@ -304,19 +300,58 @@ h2 {
 }
 
 .meal-card {
+  position: relative;
   min-height: 96px;
-  padding: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
   transition: transform 120ms ease;
 }
 
-.meal-card p {
-  margin: 8px 0 0;
+.meal-card-toggle {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  min-height: 94px;
+  padding: 14px 42px 14px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.meal-delete-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff0ef;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.meal-card-notes {
+  display: -webkit-box;
+  overflow: hidden;
   color: var(--muted);
   font-size: 0.92rem;
   line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.meal-card.expanded .meal-card-notes {
+  display: block;
+  overflow: visible;
 }
 
 .modal {
@@ -340,6 +375,12 @@ h2 {
 .modal-header {
   justify-content: space-between;
   gap: 12px;
+}
+
+.modal-copy {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 label {
@@ -459,25 +500,8 @@ textarea {
     padding: 10px;
   }
 
-  .meal-notes {
-    -webkit-line-clamp: 2;
-  }
-
   .meal-name {
     font-size: 0.9rem;
     line-height: 1.2;
-  }
-
-  .meal-notes {
-    font-size: 0.78rem;
-    line-height: 1.28;
-  }
-
-  .modal-actions.split {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .modal-actions.split span {
-    display: none;
   }
 }

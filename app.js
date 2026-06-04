@@ -6,6 +6,8 @@ const state = {
   meals: [],
   assignments: {},
   selectedSlot: null,
+  expandedMealId: null,
+  pendingDeleteMealId: null,
 };
 
 const plannerGrid = document.querySelector("#plannerGrid");
@@ -24,6 +26,10 @@ const assignDialog = document.querySelector("#assignDialog");
 const assignForm = document.querySelector("#assignForm");
 const assignSlotLabel = document.querySelector("#assignSlotLabel");
 const mealSelect = document.querySelector("#mealSelect");
+
+const deleteMealDialog = document.querySelector("#deleteMealDialog");
+const deleteMealForm = document.querySelector("#deleteMealForm");
+const deleteMealMessage = document.querySelector("#deleteMealMessage");
 
 document.querySelector("#addMealButton").addEventListener("click", () => {
   mealForm.reset();
@@ -84,6 +90,22 @@ assignForm.addEventListener("submit", async event => {
   state.assignments[slot.key] = mealId;
   await saveData("Meal assigned");
   assignDialog.close();
+});
+
+deleteMealForm.addEventListener("submit", async event => {
+  if (event.submitter?.value === "cancel") {
+    state.pendingDeleteMealId = null;
+    return;
+  }
+
+  event.preventDefault();
+  const mealId = state.pendingDeleteMealId;
+  state.pendingDeleteMealId = null;
+  deleteMealDialog.close();
+
+  if (mealId) {
+    await deleteMeal(mealId);
+  }
 });
 
 async function loadData() {
@@ -178,7 +200,7 @@ function renderPlanner() {
       button.className = `planner-cell${meal ? "" : " empty"}${isToday ? " today-row" : ""}${isToday && mealIndex === MEAL_TYPES.length - 1 ? " today-end" : ""}`;
       button.dataset.key = key;
       button.innerHTML = meal
-        ? `<span class="meal-name">${escapeHtml(meal.name)}</span>${meal.notes ? `<span class="meal-notes">${escapeHtml(meal.notes)}</span>` : ""}`
+        ? `<span class="meal-name">${escapeHtml(meal.name)}</span>`
         : `<span class="add-mark">+</span><span class="add-label">Add</span>`;
       button.addEventListener("click", () => openAssignDialog({ key, day, date, mealType, meal }));
       plannerGrid.append(button);
@@ -196,13 +218,57 @@ function renderMeals() {
 
   state.meals
     .slice()
-    .sort((a, b) => a.name.localeCompare(b.name))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
     .forEach(meal => {
+      const isExpanded = state.expandedMealId === meal.id;
       const card = document.createElement("article");
-      card.className = "meal-card";
-      card.innerHTML = `<strong>${escapeHtml(meal.name)}</strong>${meal.notes ? `<p>${escapeHtml(meal.notes)}</p>` : ""}`;
+      card.className = `meal-card${isExpanded ? " expanded" : ""}`;
+      card.innerHTML = `
+        <button class="meal-delete-button" type="button" aria-label="Delete ${escapeHtml(meal.name)}" title="Delete">x</button>
+        <button class="meal-card-toggle" type="button" aria-expanded="${isExpanded}">
+          <strong>${escapeHtml(meal.name)}</strong>
+          <span class="meal-card-notes">${meal.notes ? linkifyText(meal.notes) : "No notes saved."}</span>
+        </button>
+      `;
+      card.querySelector(".meal-card-toggle").addEventListener("click", () => {
+        state.expandedMealId = state.expandedMealId === meal.id ? null : meal.id;
+        renderMeals();
+      });
+      card.querySelectorAll(".meal-card-notes a").forEach(link => {
+        link.addEventListener("click", event => event.stopPropagation());
+      });
+      card.querySelector(".meal-delete-button").addEventListener("click", event => {
+        event.stopPropagation();
+        openDeleteMealDialog(meal.id);
+      });
       mealList.append(card);
     });
+}
+
+function openDeleteMealDialog(mealId) {
+  const meal = state.meals.find(item => item.id === mealId);
+  if (!meal) {
+    return;
+  }
+
+  state.pendingDeleteMealId = mealId;
+  deleteMealMessage.textContent = `Delete "${meal.name}"?`;
+  deleteMealDialog.showModal();
+}
+
+async function deleteMeal(mealId) {
+  state.meals = state.meals.filter(item => item.id !== mealId);
+  Object.keys(state.assignments).forEach(slotKey => {
+    if (state.assignments[slotKey] === mealId) {
+      delete state.assignments[slotKey];
+    }
+  });
+
+  if (state.expandedMealId === mealId) {
+    state.expandedMealId = null;
+  }
+
+  await saveData("Meal deleted");
 }
 
 function appendHeader(text) {
@@ -225,7 +291,7 @@ function openAssignDialog(slot) {
   } else {
     state.meals
       .slice()
-      .sort((a, b) => a.name.localeCompare(b.name))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
       .forEach(meal => {
         const option = document.createElement("option");
         option.value = meal.id;
@@ -272,6 +338,38 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function linkifyText(value) {
+  const pattern = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
+  const text = String(value);
+  let html = "";
+  let lastIndex = 0;
+  let match;
+
+  while ((match = pattern.exec(text)) !== null) {
+    html += escapeHtml(text.slice(lastIndex, match.index));
+    const rawUrl = match[0];
+    const trailing = rawUrl.match(/[),.!?;:]+$/)?.[0] || "";
+    const urlText = trailing ? rawUrl.slice(0, -trailing.length) : rawUrl;
+    const href = urlText.startsWith("www.") ? `https://${urlText}` : urlText;
+
+    try {
+      const url = new URL(href);
+      if (url.protocol !== "http:" && url.protocol !== "https:") {
+        html += escapeHtml(rawUrl);
+      } else {
+        html += `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(urlText)}</a>${escapeHtml(trailing)}`;
+      }
+    } catch {
+      html += escapeHtml(rawUrl);
+    }
+
+    lastIndex = pattern.lastIndex;
+  }
+
+  html += escapeHtml(text.slice(lastIndex));
+  return html;
 }
 
 let toastTimer;

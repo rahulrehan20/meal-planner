@@ -89,6 +89,20 @@
       </form>
     </dialog>
 
+    <dialog class="modal" id="deleteMealDialog">
+      <form method="dialog" class="modal-panel" id="deleteMealForm">
+        <div class="modal-header">
+          <h2>Delete Meal</h2>
+          <button class="icon-button subtle" value="cancel" type="submit" formnovalidate aria-label="Close" title="Close">x</button>
+        </div>
+        <p class="modal-copy" id="deleteMealMessage">Delete this meal?</p>
+        <div class="modal-actions">
+          <button class="button ghost" value="cancel" type="submit" formnovalidate>Cancel</button>
+          <button class="button danger" value="delete" type="submit">Delete</button>
+        </div>
+      </form>
+    </dialog>
+
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <script src="app.js"></script>
