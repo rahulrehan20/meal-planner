@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once '/var/lib/rahul-security/bootstrap.php';
 
 header('Content-Type: application/json');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -25,6 +26,7 @@ if ($method === 'GET') {
 }
 
 if ($method === 'POST') {
+    home_same_origin();
     $rawInput = file_get_contents('php://input');
     $payload = json_decode($rawInput ?: '', true);
 
@@ -34,6 +36,13 @@ if ($method === 'POST') {
         exit;
     }
 
+    if (!isset($payload['meals'], $payload['assignments']) || !is_array($payload['meals']) || !is_array($payload['assignments'])) home_fail(400,'Invalid planner data.');
+    foreach ($payload['meals'] as $meal) {
+        if (!is_array($meal)) home_fail(400,'Invalid meal.');
+        foreach (['id','name','notes','createdAt'] as $key) if (isset($meal[$key]) && !is_scalar($meal[$key])) home_fail(400,'Invalid meal field.');
+    }
+    foreach ($payload['assignments'] as $value) if (!is_scalar($value)) home_fail(400,'Invalid assignment.');
+    if (count($payload['meals'] ?? [])>500 || count($payload['assignments'] ?? [])>10000) home_fail(400,'Planner is too large.');
     $data = [
         'meals' => normalizeMeals($payload['meals'] ?? []),
         'assignments' => normalizeAssignments($payload['assignments'] ?? []),
