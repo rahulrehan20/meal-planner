@@ -402,6 +402,14 @@ h2 {
   overflow: visible;
 }
 
+.meal-card-actions {
+  padding: 0 14px 14px;
+}
+
+.meal-card-edit {
+  width: 100%;
+}
+
 .meal-card.reference-highlight {
   outline: 3px solid var(--accent);
   outline-offset: 2px;

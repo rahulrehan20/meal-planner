@@ -7,6 +7,7 @@ const state = {
   assignments: {},
   selectedSlot: null,
   expandedMealId: null,
+  editingMealId: null,
   pendingDeleteMealId: null,
   assignmentSaving: false,
   mealSaving: false,
@@ -21,6 +22,7 @@ const toast = document.querySelector("#toast");
 
 const mealDialog = document.querySelector("#mealDialog");
 const mealForm = document.querySelector("#mealForm");
+const mealDialogTitle = document.querySelector("#mealDialogTitle");
 const mealNameInput = document.querySelector("#mealNameInput");
 const mealNotesInput = document.querySelector("#mealNotesInput");
 const mealDuplicateWarning = document.querySelector("#mealDuplicateWarning");
@@ -39,11 +41,31 @@ const deleteMealForm = document.querySelector("#deleteMealForm");
 const deleteMealMessage = document.querySelector("#deleteMealMessage");
 
 document.querySelector("#addMealButton").addEventListener("click", () => {
+  state.editingMealId = null;
   mealForm.reset();
+  mealDialogTitle.textContent = "Add Meal";
+  saveMealButton.textContent = "Save meal";
   updateMealDuplicateWarning();
   mealDialog.showModal();
   mealNameInput.focus();
 });
+
+function openEditMealDialog(mealId) {
+  const meal = state.meals.find(item => item.id === mealId);
+  if (!meal) {
+    return;
+  }
+
+  state.editingMealId = mealId;
+  mealForm.reset();
+  mealNameInput.value = meal.name;
+  mealNotesInput.value = meal.notes || "";
+  mealDialogTitle.textContent = "Edit Meal";
+  saveMealButton.textContent = "Save changes";
+  updateMealDuplicateWarning();
+  mealDialog.showModal();
+  mealNameInput.focus();
+}
 
 function createMealId() {
   if (typeof crypto.randomUUID === "function") {
@@ -60,7 +82,7 @@ function normalizedMealName(name) {
 
 function findExistingMeal(name) {
   const normalizedName = normalizedMealName(name);
-  return normalizedName ? state.meals.find(meal => normalizedMealName(meal.name) === normalizedName) : null;
+  return normalizedName ? state.meals.find(meal => meal.id !== state.editingMealId && normalizedMealName(meal.name) === normalizedName) : null;
 }
 
 function updateMealDuplicateWarning() {
@@ -100,22 +122,37 @@ mealForm.addEventListener("submit", async event => {
     return;
   }
 
+  const editingIndex = state.meals.findIndex(meal => meal.id === state.editingMealId);
+  if (state.editingMealId && editingIndex === -1) {
+    showToast("This meal is no longer available.");
+    return;
+  }
+
+  const previousMeal = editingIndex >= 0 ? state.meals[editingIndex] : null;
   const meal = {
-    id: createMealId(),
+    id: previousMeal?.id || createMealId(),
     name,
     notes,
-    createdAt: new Date().toISOString(),
+    createdAt: previousMeal?.createdAt || new Date().toISOString(),
   };
   state.mealSaving = true;
   saveMealButton.disabled = true;
-  state.meals.push(meal);
+  if (editingIndex >= 0) {
+    state.meals[editingIndex] = meal;
+  } else {
+    state.meals.push(meal);
+  }
 
-  const saved = await saveData("Meal saved");
+  const saved = await saveData(previousMeal ? "Meal updated" : "Meal saved");
   state.mealSaving = false;
   if (saved) {
     mealDialog.close();
   } else {
-    state.meals = state.meals.filter(item => item.id !== meal.id);
+    if (editingIndex >= 0) {
+      state.meals[editingIndex] = previousMeal;
+    } else {
+      state.meals = state.meals.filter(item => item.id !== meal.id);
+    }
     render();
     updateMealDuplicateWarning();
   }
@@ -312,6 +349,7 @@ function renderMeals() {
           <strong>${escapeHtml(meal.name)}</strong>
           <span class="meal-card-notes">${meal.notes ? linkifyText(meal.notes) : "No notes saved."}</span>
         </button>
+        ${isExpanded ? `<div class="meal-card-actions"><button class="button ghost meal-card-edit" type="button">${meal.notes ? "Edit meal" : "Add notes or edit name"}</button></div>` : ""}
       `;
       card.querySelector(".meal-card-toggle").addEventListener("click", () => {
         state.expandedMealId = state.expandedMealId === meal.id ? null : meal.id;
@@ -324,6 +362,7 @@ function renderMeals() {
         event.stopPropagation();
         openDeleteMealDialog(meal.id);
       });
+      card.querySelector(".meal-card-edit")?.addEventListener("click", () => openEditMealDialog(meal.id));
       mealList.append(card);
     });
 }
