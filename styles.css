@@ -484,6 +484,20 @@ h2 {
   color: var(--muted);
   line-height: 1.45;
 }
+.field-warning {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #e9b9b4;
+  border-radius: 8px;
+  background: #fff0ef;
+  color: var(--danger);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.field-warning[hidden] {
+  display: none;
+}
 
 label {
   display: grid;

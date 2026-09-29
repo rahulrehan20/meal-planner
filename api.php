@@ -55,8 +55,12 @@ if ($method === 'POST') {
         }
     }
     if (count($payload['meals'] ?? [])>500 || count($payload['assignments'] ?? [])>10000) home_fail(400,'Planner is too large.');
+    $meals = normalizeMeals($payload['meals'] ?? []);
+    if (hasDuplicateMealNames($meals)) {
+        home_fail(409, 'This meal is already saved.');
+    }
     $data = [
-        'meals' => normalizeMeals($payload['meals'] ?? []),
+        'meals' => $meals,
         'assignments' => normalizeAssignments($payload['assignments'] ?? []),
         'updatedAt' => gmdate('c'),
     ];
@@ -126,6 +130,20 @@ function normalizeMeals(mixed $meals): array
     }
 
     return $cleanMeals;
+}
+
+function hasDuplicateMealNames(array $meals): bool
+{
+    $seen = [];
+    foreach ($meals as $meal) {
+        $name = preg_replace('/\s+/u', ' ', trim($meal['name'])) ?? trim($meal['name']);
+        $key = function_exists('mb_strtolower') ? mb_strtolower($name, 'UTF-8') : strtolower($name);
+        if (isset($seen[$key])) {
+            return true;
+        }
+        $seen[$key] = true;
+    }
+    return false;
 }
 
 function normalizeAssignments(mixed $assignments): object

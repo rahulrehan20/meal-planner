@@ -9,6 +9,7 @@ const state = {
   expandedMealId: null,
   pendingDeleteMealId: null,
   assignmentSaving: false,
+  mealSaving: false,
 };
 
 const plannerGrid = document.querySelector("#plannerGrid");
@@ -22,6 +23,8 @@ const mealDialog = document.querySelector("#mealDialog");
 const mealForm = document.querySelector("#mealForm");
 const mealNameInput = document.querySelector("#mealNameInput");
 const mealNotesInput = document.querySelector("#mealNotesInput");
+const mealDuplicateWarning = document.querySelector("#mealDuplicateWarning");
+const saveMealButton = document.querySelector("#saveMealButton");
 
 const assignDialog = document.querySelector("#assignDialog");
 const assignForm = document.querySelector("#assignForm");
@@ -37,9 +40,42 @@ const deleteMealMessage = document.querySelector("#deleteMealMessage");
 
 document.querySelector("#addMealButton").addEventListener("click", () => {
   mealForm.reset();
+  updateMealDuplicateWarning();
   mealDialog.showModal();
   mealNameInput.focus();
 });
+
+function createMealId() {
+  if (typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return `meal-${Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function normalizedMealName(name) {
+  return String(name).trim().replace(/\s+/g, " ").toLocaleLowerCase();
+}
+
+function findExistingMeal(name) {
+  const normalizedName = normalizedMealName(name);
+  return normalizedName ? state.meals.find(meal => normalizedMealName(meal.name) === normalizedName) : null;
+}
+
+function updateMealDuplicateWarning() {
+  const existingMeal = findExistingMeal(mealNameInput.value);
+  mealDuplicateWarning.hidden = !existingMeal;
+  mealDuplicateWarning.textContent = existingMeal
+    ? `Already saved as "${existingMeal.name}". Use the existing meal instead.`
+    : "";
+  mealNameInput.setCustomValidity(existingMeal ? "This meal is already saved." : "");
+  mealNameInput.setAttribute("aria-invalid", existingMeal ? "true" : "false");
+  saveMealButton.disabled = Boolean(existingMeal) || state.mealSaving;
+  return existingMeal;
+}
+
+mealNameInput.addEventListener("input", updateMealDuplicateWarning);
 
 document.querySelector("#previousWeekButton").addEventListener("click", () => {
   state.weekStart = addDays(state.weekStart, -7);
@@ -60,19 +96,29 @@ mealForm.addEventListener("submit", async event => {
   const name = mealNameInput.value.trim();
   const notes = mealNotesInput.value.trim();
 
-  if (!name) {
+  if (!name || state.mealSaving || updateMealDuplicateWarning()) {
     return;
   }
 
-  state.meals.push({
-    id: crypto.randomUUID(),
+  const meal = {
+    id: createMealId(),
     name,
     notes,
     createdAt: new Date().toISOString(),
-  });
+  };
+  state.mealSaving = true;
+  saveMealButton.disabled = true;
+  state.meals.push(meal);
 
-  await saveData("Meal saved");
-  mealDialog.close();
+  const saved = await saveData("Meal saved");
+  state.mealSaving = false;
+  if (saved) {
+    mealDialog.close();
+  } else {
+    state.meals = state.meals.filter(item => item.id !== meal.id);
+    render();
+    updateMealDuplicateWarning();
+  }
 });
 
 assignForm.addEventListener("submit", async event => {

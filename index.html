@@ -8,7 +8,7 @@
     <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
     <link rel="manifest" href="site.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=20260930-2">
+    <link rel="stylesheet" href="styles.css?v=20260930-3">
   </head>
   <body>
     <main class="app-shell">
@@ -56,8 +56,9 @@
         </div>
         <label>
           Meal name
-          <input id="mealNameInput" name="mealName" type="text" autocomplete="off" required maxlength="80" placeholder="Paneer rice bowl">
+          <input id="mealNameInput" name="mealName" type="text" autocomplete="off" required maxlength="80" aria-describedby="mealDuplicateWarning" placeholder="Paneer rice bowl">
         </label>
+        <p class="field-warning" id="mealDuplicateWarning" role="alert" hidden></p>
         <label>
           Notes
           <textarea id="mealNotesInput" name="mealNotes" rows="4" maxlength="500" placeholder="Optional ingredients, prep notes, or links"></textarea>
@@ -108,6 +109,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="app.js?v=20260930-2"></script>
+    <script src="app.js?v=20260930-3"></script>
   </body>
 </html>
