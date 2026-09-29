@@ -8,7 +8,7 @@
     <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
     <link rel="manifest" href="site.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=20260604-2">
+    <link rel="stylesheet" href="styles.css?v=20260930-1">
   </head>
   <body>
     <main class="app-shell">
@@ -74,17 +74,20 @@
         <div class="modal-header">
           <div>
             <p class="eyebrow" id="assignSlotLabel">Meal slot</p>
-            <h2>Assign Meal</h2>
+            <h2>Meals for this slot</h2>
           </div>
           <button class="icon-button subtle" value="cancel" type="submit" formnovalidate aria-label="Close" title="Close">x</button>
         </div>
-        <label>
-          Saved meal
-          <select id="mealSelect"></select>
-        </label>
+        <div class="assigned-meals" id="assignedMeals" aria-live="polite"></div>
+        <div class="add-to-slot-controls" id="addToSlotControls">
+          <label>
+            Add a saved meal
+            <select id="mealSelect"></select>
+          </label>
+          <button class="button" id="addToSlotButton" value="add" type="submit">Add to this slot</button>
+        </div>
         <div class="modal-actions">
-          <button class="button ghost" value="cancel" type="submit" formnovalidate>Cancel</button>
-          <button class="button" value="default" type="submit">Assign</button>
+          <button class="button ghost" value="cancel" type="submit" formnovalidate>Done</button>
         </div>
       </form>
     </dialog>
@@ -105,6 +108,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="app.js?v=20260604-2"></script>
+    <script src="app.js?v=20260930-1"></script>
   </body>
 </html>

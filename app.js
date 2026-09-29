@@ -8,6 +8,7 @@ const state = {
   selectedSlot: null,
   expandedMealId: null,
   pendingDeleteMealId: null,
+  assignmentSaving: false,
 };
 
 const plannerGrid = document.querySelector("#plannerGrid");
@@ -26,6 +27,9 @@ const assignDialog = document.querySelector("#assignDialog");
 const assignForm = document.querySelector("#assignForm");
 const assignSlotLabel = document.querySelector("#assignSlotLabel");
 const mealSelect = document.querySelector("#mealSelect");
+const assignedMeals = document.querySelector("#assignedMeals");
+const addToSlotControls = document.querySelector("#addToSlotControls");
+const addToSlotButton = document.querySelector("#addToSlotButton");
 
 const deleteMealDialog = document.querySelector("#deleteMealDialog");
 const deleteMealForm = document.querySelector("#deleteMealForm");
@@ -78,18 +82,17 @@ assignForm.addEventListener("submit", async event => {
 
   event.preventDefault();
   const slot = state.selectedSlot;
-  if (!slot) {
-    return;
-  }
-
   const mealId = mealSelect.value;
-  if (!mealId) {
+  if (!slot || !mealId) {
     return;
   }
 
-  state.assignments[slot.key] = mealId;
-  await saveData("Meal assigned");
-  assignDialog.close();
+  const assignedIds = getAssignedMealIds(slot.key);
+  if (assignedIds.length >= 2 || assignedIds.includes(mealId)) {
+    return;
+  }
+
+  await updateSlotMeals(slot.key, [...assignedIds, mealId], "Meal added to this day");
 });
 
 deleteMealForm.addEventListener("submit", async event => {
@@ -144,9 +147,11 @@ async function saveData(message) {
     await response.json();
     render();
     showToast(message);
+    return true;
   } catch (error) {
     showToast(error.message || "Could not save.");
     console.error(error);
+    return false;
   }
 }
 
@@ -194,15 +199,18 @@ function renderPlanner() {
 
     MEAL_TYPES.forEach((mealType, mealIndex) => {
       const key = `${dateKey}:${mealType.toLowerCase()}`;
-      const meal = state.meals.find(item => item.id === state.assignments[key]);
+      const meals = getAssignedMealIds(key)
+        .map(id => state.meals.find(item => item.id === id))
+        .filter(Boolean);
       const button = document.createElement("button");
       button.type = "button";
-      button.className = `planner-cell${meal ? "" : " empty"}${isToday ? " today-row" : ""}${isToday && mealIndex === MEAL_TYPES.length - 1 ? " today-end" : ""}`;
+      button.className = `planner-cell${meals.length ? "" : " empty"}${isToday ? " today-row" : ""}${isToday && mealIndex === MEAL_TYPES.length - 1 ? " today-end" : ""}`;
       button.dataset.key = key;
-      button.innerHTML = meal
-        ? `<span class="meal-name">${escapeHtml(meal.name)}</span>`
+      button.setAttribute("aria-label", `${day} ${mealType}: ${meals.length ? meals.map(meal => meal.name).join(" and ") : "Add meal"}`);
+      button.innerHTML = meals.length
+        ? meals.map(meal => `<span class="meal-name">${escapeHtml(meal.name)}</span>`).join("")
         : `<span class="add-mark">+</span><span class="add-label">Add</span>`;
-      button.addEventListener("click", () => openAssignDialog({ key, day, date, mealType, meal }));
+      button.addEventListener("click", () => openAssignDialog({ key, day, date, mealType }));
       plannerGrid.append(button);
     });
   });
@@ -257,18 +265,22 @@ function openDeleteMealDialog(mealId) {
 }
 
 async function deleteMeal(mealId) {
+  const previousMeals = state.meals;
+  const previousAssignments = { ...state.assignments };
   state.meals = state.meals.filter(item => item.id !== mealId);
   Object.keys(state.assignments).forEach(slotKey => {
-    if (state.assignments[slotKey] === mealId) {
-      delete state.assignments[slotKey];
-    }
+    setSlotMealIds(slotKey, getAssignedMealIds(slotKey).filter(id => id !== mealId));
   });
 
   if (state.expandedMealId === mealId) {
     state.expandedMealId = null;
   }
 
-  await saveData("Meal deleted");
+  if (!await saveData("Meal deleted")) {
+    state.meals = previousMeals;
+    state.assignments = previousAssignments;
+    render();
+  }
 }
 
 function appendHeader(text) {
@@ -278,31 +290,104 @@ function appendHeader(text) {
   plannerGrid.append(header);
 }
 
+function getAssignedMealIds(slotKey) {
+  const value = state.assignments[slotKey];
+  const ids = Array.isArray(value) ? value : typeof value === "string" ? [value] : [];
+  return [...new Set(ids.filter(id => typeof id === "string" && id))].slice(0, 2);
+}
+
+function setSlotMealIds(slotKey, ids) {
+  if (ids.length === 0) {
+    delete state.assignments[slotKey];
+  } else {
+    state.assignments[slotKey] = ids.length === 1 ? ids[0] : ids.slice(0, 2);
+  }
+}
+
+async function updateSlotMeals(slotKey, ids, message) {
+  if (state.assignmentSaving) {
+    return;
+  }
+
+  const previousIds = getAssignedMealIds(slotKey);
+  state.assignmentSaving = true;
+  setSlotMealIds(slotKey, ids);
+  renderAssignDialog();
+  const saved = await saveData(message);
+  if (!saved) {
+    setSlotMealIds(slotKey, previousIds);
+    render();
+  }
+  state.assignmentSaving = false;
+  renderAssignDialog();
+}
+
+function renderAssignDialog() {
+  const slot = state.selectedSlot;
+  if (!slot) {
+    return;
+  }
+
+  const assignedIds = getAssignedMealIds(slot.key);
+  assignedMeals.replaceChildren();
+
+  if (assignedIds.length === 0) {
+    const message = document.createElement("p");
+    message.className = "slot-message";
+    message.textContent = state.meals.length ? "No meals planned for this slot." : "Add a saved meal using the + button first.";
+    assignedMeals.append(message);
+  }
+
+  assignedIds.forEach(id => {
+    const meal = state.meals.find(item => item.id === id);
+    const row = document.createElement("div");
+    row.className = "assigned-meal-row";
+    const name = document.createElement("span");
+    name.textContent = meal?.name || "Unavailable meal";
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "button danger";
+    removeButton.textContent = "Remove";
+    removeButton.setAttribute("aria-label", `Remove ${name.textContent} from ${slot.day} ${slot.mealType}`);
+    removeButton.disabled = state.assignmentSaving;
+    removeButton.addEventListener("click", () => {
+      updateSlotMeals(slot.key, getAssignedMealIds(slot.key).filter(value => value !== id), "Meal removed from this day");
+    });
+    row.append(name, removeButton);
+    assignedMeals.append(row);
+  });
+
+  if (assignedIds.length === 2) {
+    const message = document.createElement("p");
+    message.className = "slot-message";
+    message.textContent = "Two meals planned. Remove one to add another.";
+    assignedMeals.append(message);
+  }
+
+  const availableMeals = state.meals
+    .filter(meal => !assignedIds.includes(meal.id))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+  mealSelect.replaceChildren();
+  availableMeals.forEach(meal => {
+    const option = document.createElement("option");
+    option.value = meal.id;
+    option.textContent = meal.name;
+    mealSelect.append(option);
+  });
+
+  const canAdd = assignedIds.length < 2 && availableMeals.length > 0;
+  addToSlotControls.hidden = !canAdd;
+  mealSelect.disabled = state.assignmentSaving || !canAdd;
+  addToSlotButton.disabled = state.assignmentSaving || !canAdd;
+}
+
 function openAssignDialog(slot) {
   state.selectedSlot = slot;
   assignSlotLabel.textContent = `${slot.day}, ${formatDate(slot.date)} - ${slot.mealType}`;
-  mealSelect.innerHTML = "";
-
-  if (state.meals.length === 0) {
-    const option = document.createElement("option");
-    option.value = "";
-    option.textContent = "Add a meal first";
-    mealSelect.append(option);
-  } else {
-    state.meals
-      .slice()
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
-      .forEach(meal => {
-        const option = document.createElement("option");
-        option.value = meal.id;
-        option.textContent = meal.name;
-        option.selected = meal.id === state.assignments[slot.key];
-        mealSelect.append(option);
-      });
-  }
-
+  renderAssignDialog();
   assignDialog.showModal();
-  mealSelect.focus();
+  const focusTarget = !mealSelect.disabled ? mealSelect : assignedMeals.querySelector("button") || assignDialog.querySelector('[value="cancel"]');
+  focusTarget?.focus();
 }
 
 function startOfWeek(date) {

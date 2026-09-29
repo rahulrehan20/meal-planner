@@ -278,6 +278,10 @@ h2 {
   font-weight: 800;
 }
 
+.planner-cell .meal-name + .meal-name {
+  margin-top: 5px;
+}
+
 .meal-card-notes a {
   color: var(--accent-dark);
   font-weight: 700;
@@ -352,6 +356,55 @@ h2 {
 .meal-card.expanded .meal-card-notes {
   display: block;
   overflow: visible;
+}
+
+.assigned-meals {
+  display: grid;
+  gap: 10px;
+}
+
+.assigned-meal-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.assigned-meal-row span {
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.assigned-meal-row .button,
+.add-to-slot-controls .button {
+  min-height: 48px;
+}
+
+.slot-message {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.add-to-slot-controls {
+  display: grid;
+  gap: 12px;
+}
+
+.add-to-slot-controls[hidden] {
+  display: none;
+}
+
+.add-to-slot-controls > .button {
+  width: 100%;
+}
+
+.button:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
 
 .modal {

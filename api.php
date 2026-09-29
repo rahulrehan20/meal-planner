@@ -41,7 +41,19 @@ if ($method === 'POST') {
         if (!is_array($meal)) home_fail(400,'Invalid meal.');
         foreach (['id','name','notes','createdAt'] as $key) if (isset($meal[$key]) && !is_scalar($meal[$key])) home_fail(400,'Invalid meal field.');
     }
-    foreach ($payload['assignments'] as $value) if (!is_scalar($value)) home_fail(400,'Invalid assignment.');
+    foreach ($payload['assignments'] as $value) {
+        if (is_string($value)) {
+            continue;
+        }
+        if (!is_array($value) || count($value) > 2) {
+            home_fail(400, 'Invalid assignment.');
+        }
+        foreach ($value as $mealId) {
+            if (!is_string($mealId)) {
+                home_fail(400, 'Invalid assignment.');
+            }
+        }
+    }
     if (count($payload['meals'] ?? [])>500 || count($payload['assignments'] ?? [])>10000) home_fail(400,'Planner is too large.');
     $data = [
         'meals' => normalizeMeals($payload['meals'] ?? []),
@@ -123,15 +135,26 @@ function normalizeAssignments(mixed $assignments): object
     }
 
     $cleanAssignments = [];
-    foreach ($assignments as $slot => $mealId) {
+    foreach ($assignments as $slot => $value) {
         $slotKey = trim((string)$slot);
-        $mealKey = trim((string)$mealId);
-
-        if (preg_match('/^\d{4}-\d{2}-\d{2}:(breakfast|lunch|dinner)$/', $slotKey) !== 1 || $mealKey === '') {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}:(breakfast|lunch|dinner)$/', $slotKey) !== 1) {
             continue;
         }
 
-        $cleanAssignments[$slotKey] = truncateText($mealKey, 80);
+        $ids = is_array($value) ? $value : [$value];
+        $cleanIds = [];
+        foreach (array_slice($ids, 0, 2) as $id) {
+            $mealId = truncateText(trim((string)$id), 80);
+            if ($mealId !== '' && !in_array($mealId, $cleanIds, true)) {
+                $cleanIds[] = $mealId;
+            }
+        }
+
+        if (count($cleanIds) === 1) {
+            $cleanAssignments[$slotKey] = $cleanIds[0];
+        } elseif (count($cleanIds) === 2) {
+            $cleanAssignments[$slotKey] = $cleanIds;
+        }
     }
 
     return (object)$cleanAssignments;
