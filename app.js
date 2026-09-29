@@ -202,16 +202,44 @@ function renderPlanner() {
       const meals = getAssignedMealIds(key)
         .map(id => state.meals.find(item => item.id === id))
         .filter(Boolean);
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = `planner-cell${meals.length ? "" : " empty"}${isToday ? " today-row" : ""}${isToday && mealIndex === MEAL_TYPES.length - 1 ? " today-end" : ""}`;
-      button.dataset.key = key;
-      button.setAttribute("aria-label", `${day} ${mealType}: ${meals.length ? meals.map(meal => meal.name).join(" and ") : "Add meal"}`);
-      button.innerHTML = meals.length
-        ? meals.map(meal => `<span class="meal-name">${escapeHtml(meal.name)}</span>`).join("")
-        : `<span class="add-mark">+</span><span class="add-label">Add</span>`;
-      button.addEventListener("click", () => openAssignDialog({ key, day, date, mealType }));
-      plannerGrid.append(button);
+      const cell = document.createElement(meals.length ? "div" : "button");
+      cell.className = `planner-cell${meals.length ? "" : " empty"}${isToday ? " today-row" : ""}${isToday && mealIndex === MEAL_TYPES.length - 1 ? " today-end" : ""}`;
+      cell.dataset.key = key;
+
+      if (meals.length === 0) {
+        cell.type = "button";
+        cell.setAttribute("aria-label", `${day} ${mealType}: Add meal`);
+        cell.innerHTML = `<span class="add-mark">+</span><span class="add-label">Add</span>`;
+        cell.addEventListener("click", () => openAssignDialog({ key, day, date, mealType }));
+      } else {
+        cell.addEventListener("click", () => openAssignDialog({ key, day, date, mealType }));
+        meals.forEach(meal => {
+          const row = document.createElement("div");
+          row.className = `slot-meal-row${hasReferenceLink(meal.notes) ? " has-reference" : ""}`;
+          const openButton = document.createElement("button");
+          openButton.type = "button";
+          openButton.className = "slot-meal-open";
+          openButton.innerHTML = `<span class="meal-name">${escapeHtml(meal.name)}</span>`;
+          openButton.setAttribute("aria-label", `Change ${day} ${mealType} meals`);
+          row.append(openButton);
+
+          if (hasReferenceLink(meal.notes)) {
+            const referenceButton = document.createElement("button");
+            referenceButton.type = "button";
+            referenceButton.className = "reference-button";
+            referenceButton.textContent = "🔗";
+            referenceButton.title = "View recipe reference";
+            referenceButton.setAttribute("aria-label", `View recipe reference for ${meal.name}`);
+            referenceButton.addEventListener("click", event => {
+              event.stopPropagation();
+              showMealReference(meal.id);
+            });
+            row.append(referenceButton);
+          }
+          cell.append(row);
+        });
+      }
+      plannerGrid.append(cell);
     });
   });
 }
@@ -231,6 +259,7 @@ function renderMeals() {
       const isExpanded = state.expandedMealId === meal.id;
       const card = document.createElement("article");
       card.className = `meal-card${isExpanded ? " expanded" : ""}`;
+      card.dataset.mealId = meal.id;
       card.innerHTML = `
         <button class="meal-delete-button" type="button" aria-label="Delete ${escapeHtml(meal.name)}" title="Delete">x</button>
         <button class="meal-card-toggle" type="button" aria-expanded="${isExpanded}">
@@ -251,6 +280,26 @@ function renderMeals() {
       });
       mealList.append(card);
     });
+}
+
+function hasReferenceLink(notes) {
+  return /\b(?:https?:\/\/|www\.|youtube\.com\/|youtu\.be\/)\S+/i.test(notes || "");
+}
+
+function showMealReference(mealId) {
+  state.expandedMealId = mealId;
+  renderMeals();
+  const card = Array.from(mealList.children).find(item => item.dataset.mealId === mealId);
+  if (!card) {
+    return;
+  }
+
+  card.classList.add("reference-highlight");
+  requestAnimationFrame(() => {
+    card.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+    card.querySelector(".meal-card-toggle")?.focus({ preventScroll: true });
+  });
+  setTimeout(() => card.classList.remove("reference-highlight"), 2200);
 }
 
 function openDeleteMealDialog(mealId) {
@@ -426,7 +475,7 @@ function escapeHtml(value) {
 }
 
 function linkifyText(value) {
-  const pattern = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
+  const pattern = /(https?:\/\/[^\s<]+|www\.[^\s<]+|(?:youtube\.com|youtu\.be)\/[^\s<]+)/gi;
   const text = String(value);
   let html = "";
   let lastIndex = 0;
@@ -437,7 +486,7 @@ function linkifyText(value) {
     const rawUrl = match[0];
     const trailing = rawUrl.match(/[),.!?;:]+$/)?.[0] || "";
     const urlText = trailing ? rawUrl.slice(0, -trailing.length) : rawUrl;
-    const href = urlText.startsWith("www.") ? `https://${urlText}` : urlText;
+    const href = /^https?:\/\//i.test(urlText) ? urlText : `https://${urlText}`;
 
     try {
       const url = new URL(href);

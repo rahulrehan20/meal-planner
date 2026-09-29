@@ -275,7 +275,51 @@ h2 {
 
 .meal-name {
   display: block;
+  overflow-wrap: anywhere;
   font-weight: 800;
+}
+
+.slot-meal-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  min-height: 44px;
+}
+
+.slot-meal-row.has-reference {
+  grid-template-columns: minmax(0, 1fr) 44px;
+}
+
+.slot-meal-row + .slot-meal-row {
+  border-top: 1px solid var(--line);
+}
+
+.slot-meal-open {
+  width: 100%;
+  min-height: 44px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: center;
+}
+
+.reference-button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.15rem;
+}
+
+.reference-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .planner-cell .meal-name + .meal-name {
@@ -356,6 +400,11 @@ h2 {
 .meal-card.expanded .meal-card-notes {
   display: block;
   overflow: visible;
+}
+
+.meal-card.reference-highlight {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .assigned-meals {
@@ -514,8 +563,8 @@ textarea {
   }
 
   .planner-grid {
-    grid-template-columns: 76px repeat(3, minmax(104px, 1fr));
-    min-width: 388px;
+    grid-template-columns: 76px repeat(3, minmax(122px, 1fr));
+    min-width: 442px;
   }
 
   .day-label,
@@ -550,7 +599,7 @@ textarea {
   }
 
   .planner-cell {
-    padding: 10px;
+    padding: 6px;
   }
 
   .meal-name {
