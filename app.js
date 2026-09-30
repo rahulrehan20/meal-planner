@@ -7,6 +7,8 @@ const state = {
   assignments: {},
   selectedSlot: null,
   editingMealId: null,
+  mealChoiceId: null,
+  mealOptionIndex: -1,
   pendingDeleteMealId: null,
   assignmentSaving: false,
   mealSaving: false,
@@ -30,9 +32,10 @@ const saveMealButton = document.querySelector("#saveMealButton");
 const assignDialog = document.querySelector("#assignDialog");
 const assignForm = document.querySelector("#assignForm");
 const assignSlotLabel = document.querySelector("#assignSlotLabel");
-const mealSearchInput = document.querySelector("#mealSearchInput");
-const mealSelect = document.querySelector("#mealSelect");
-const mealSearchMessage = document.querySelector("#mealSearchMessage");
+const mealPicker = document.querySelector("#mealPicker");
+const mealPickerInput = document.querySelector("#mealPickerInput");
+const mealPickerToggle = document.querySelector("#mealPickerToggle");
+const mealOptions = document.querySelector("#mealOptions");
 const assignedMeals = document.querySelector("#assignedMeals");
 const addToSlotControls = document.querySelector("#addToSlotControls");
 const addToSlotButton = document.querySelector("#addToSlotButton");
@@ -99,7 +102,39 @@ function updateMealDuplicateWarning() {
 }
 
 mealNameInput.addEventListener("input", updateMealDuplicateWarning);
-mealSearchInput.addEventListener("input", updateMealSearchResults);
+mealPickerInput.addEventListener("focus", openMealOptions);
+mealPickerInput.addEventListener("click", () => {
+  if (state.mealChoiceId) {
+    state.mealChoiceId = null;
+    mealPickerInput.value = "";
+    updateMealPicker();
+  }
+  openMealOptions();
+});
+mealPickerInput.addEventListener("input", () => {
+  state.mealChoiceId = null;
+  state.mealOptionIndex = -1;
+  openMealOptions();
+  updateMealPicker();
+});
+mealPickerInput.addEventListener("keydown", handleMealPickerKeydown);
+mealPickerToggle.addEventListener("click", () => {
+  if (state.mealChoiceId) {
+    state.mealChoiceId = null;
+    mealPickerInput.value = "";
+    updateMealPicker();
+  }
+  if (mealOptions.hidden) {
+    openMealOptions();
+  } else {
+    closeMealOptions();
+  }
+});
+document.addEventListener("pointerdown", event => {
+  if (assignDialog.open && !mealPicker.contains(event.target)) {
+    closeMealOptions();
+  }
+});
 
 document.querySelector("#previousWeekButton").addEventListener("click", () => {
   state.weekStart = addDays(state.weekStart, -7);
@@ -167,7 +202,7 @@ assignForm.addEventListener("submit", async event => {
 
   event.preventDefault();
   const slot = state.selectedSlot;
-  const mealId = mealSelect.value;
+  const mealId = state.mealChoiceId;
   if (!slot || !mealId) {
     return;
   }
@@ -438,42 +473,143 @@ async function updateSlotMeals(slotKey, ids, message) {
     setSlotMealIds(slotKey, previousIds);
     render();
   } else {
-    mealSearchInput.value = "";
+    state.mealChoiceId = null;
+    mealPickerInput.value = "";
+    closeMealOptions();
   }
   state.assignmentSaving = false;
   renderAssignDialog();
 }
 
-function updateMealSearchResults() {
+function availableMealsForSlot() {
+  if (!state.selectedSlot) {
+    return [];
+  }
+  const assignedIds = getAssignedMealIds(state.selectedSlot.key);
+  return state.meals
+    .filter(meal => !assignedIds.includes(meal.id))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+}
+
+function matchingMealsForPicker() {
+  const query = normalizedMealName(mealPickerInput.value);
+  return availableMealsForSlot().filter(meal => normalizedMealName(meal.name).includes(query));
+}
+
+function renderMealOptions() {
+  const matches = matchingMealsForPicker();
+  mealOptions.replaceChildren();
+  if (state.mealOptionIndex >= matches.length) {
+    state.mealOptionIndex = -1;
+  }
+
+  if (matches.length === 0) {
+    const message = document.createElement("div");
+    message.className = "meal-option-empty";
+    message.setAttribute("role", "status");
+    message.textContent = "No meals match your search.";
+    mealOptions.append(message);
+  }
+
+  matches.forEach((meal, index) => {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.id = `meal-option-${index}`;
+    option.className = "meal-option";
+    option.setAttribute("role", "option");
+    option.setAttribute("aria-selected", index === state.mealOptionIndex ? "true" : "false");
+    option.textContent = meal.name;
+    option.addEventListener("click", () => selectMealChoice(meal));
+    mealOptions.append(option);
+  });
+
+  if (state.mealOptionIndex >= 0) {
+    mealPickerInput.setAttribute("aria-activedescendant", `meal-option-${state.mealOptionIndex}`);
+  } else {
+    mealPickerInput.removeAttribute("aria-activedescendant");
+  }
+}
+
+function openMealOptions() {
+  if (mealPickerInput.disabled || addToSlotControls.hidden) {
+    return;
+  }
+  mealOptions.hidden = false;
+  mealPickerInput.setAttribute("aria-expanded", "true");
+  mealPickerToggle.setAttribute("aria-expanded", "true");
+  renderMealOptions();
+}
+
+function closeMealOptions() {
+  mealOptions.hidden = true;
+  state.mealOptionIndex = -1;
+  mealPickerInput.setAttribute("aria-expanded", "false");
+  mealPickerToggle.setAttribute("aria-expanded", "false");
+  mealPickerInput.removeAttribute("aria-activedescendant");
+}
+
+function selectMealChoice(meal) {
+  state.mealChoiceId = meal.id;
+  mealPickerInput.value = meal.name;
+  closeMealOptions();
+  updateMealPicker();
+  addToSlotButton.focus();
+}
+
+function handleMealPickerKeydown(event) {
+  if (event.key === "Escape") {
+    if (!mealOptions.hidden) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeMealOptions();
+    }
+    return;
+  }
+  if (event.key === "Tab") {
+    closeMealOptions();
+    return;
+  }
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    openMealOptions();
+    const count = matchingMealsForPicker().length;
+    if (count === 0) {
+      return;
+    }
+    state.mealOptionIndex = event.key === "ArrowDown"
+      ? (state.mealOptionIndex + 1) % count
+      : (state.mealOptionIndex < 0 ? count - 1 : (state.mealOptionIndex - 1 + count) % count);
+    renderMealOptions();
+    mealOptions.querySelector(`[aria-selected="true"]`)?.scrollIntoView({ block: "nearest" });
+    return;
+  }
+  if (event.key === "Enter" && !mealOptions.hidden) {
+    event.preventDefault();
+    const matches = matchingMealsForPicker();
+    const meal = matches[state.mealOptionIndex >= 0 ? state.mealOptionIndex : 0];
+    if (meal) {
+      selectMealChoice(meal);
+    }
+  } else if (event.key === "Enter" && !state.mealChoiceId) {
+    event.preventDefault();
+  }
+}
+
+function updateMealPicker() {
   const slot = state.selectedSlot;
   if (!slot) {
     return;
   }
-
-  const assignedIds = getAssignedMealIds(slot.key);
-  const availableMeals = state.meals
-    .filter(meal => !assignedIds.includes(meal.id))
-    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
-  const query = normalizedMealName(mealSearchInput.value);
-  const matchingMeals = availableMeals.filter(meal => normalizedMealName(meal.name).includes(query));
-  const previousSelection = mealSelect.value;
-  mealSelect.replaceChildren();
-  matchingMeals.forEach(meal => {
-    const option = document.createElement("option");
-    option.value = meal.id;
-    option.textContent = meal.name;
-    mealSelect.append(option);
-  });
-  if (matchingMeals.some(meal => meal.id === previousSelection)) {
-    mealSelect.value = previousSelection;
-  }
-
-  const canAdd = assignedIds.length < 2 && availableMeals.length > 0;
+  const canAdd = getAssignedMealIds(slot.key).length < 2 && availableMealsForSlot().length > 0;
   addToSlotControls.hidden = !canAdd;
-  mealSearchMessage.hidden = !canAdd || matchingMeals.length > 0;
-  mealSearchInput.disabled = state.assignmentSaving || !canAdd;
-  mealSelect.disabled = state.assignmentSaving || !canAdd || matchingMeals.length === 0;
-  addToSlotButton.disabled = state.assignmentSaving || !canAdd || matchingMeals.length === 0;
+  mealPickerInput.disabled = state.assignmentSaving || !canAdd;
+  mealPickerToggle.disabled = state.assignmentSaving || !canAdd;
+  addToSlotButton.disabled = state.assignmentSaving || !canAdd || !availableMealsForSlot().some(meal => meal.id === state.mealChoiceId);
+  if (!canAdd) {
+    closeMealOptions();
+  } else if (!mealOptions.hidden) {
+    renderMealOptions();
+  }
 }
 
 function renderAssignDialog() {
@@ -518,17 +654,24 @@ function renderAssignDialog() {
     assignedMeals.append(message);
   }
 
-  updateMealSearchResults();
+  updateMealPicker();
 }
 
 function openAssignDialog(slot) {
   state.selectedSlot = slot;
   assignSlotLabel.textContent = `${slot.day}, ${formatDate(slot.date)} - ${slot.mealType}`;
-  mealSearchInput.value = "";
+  state.mealChoiceId = null;
+  mealPickerInput.value = "";
+  closeMealOptions();
   renderAssignDialog();
   assignDialog.showModal();
-  const focusTarget = !mealSearchInput.disabled ? mealSearchInput : assignedMeals.querySelector("button") || assignDialog.querySelector('[value="cancel"]');
-  focusTarget?.focus();
+  if (!mealPickerToggle.disabled) {
+    mealPickerToggle.focus();
+    openMealOptions();
+  } else {
+    const focusTarget = assignedMeals.querySelector("button") || assignDialog.querySelector('[value="cancel"]');
+    focusTarget?.focus();
+  }
 }
 
 function startOfWeek(date) {
