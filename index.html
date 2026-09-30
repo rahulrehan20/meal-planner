@@ -8,7 +8,7 @@
     <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
     <link rel="manifest" href="site.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=20260930-7">
+    <link rel="stylesheet" href="styles.css?v=20260930-8">
   </head>
   <body>
     <main class="app-shell">
@@ -82,9 +82,14 @@
         <div class="assigned-meals" id="assignedMeals" aria-live="polite"></div>
         <div class="add-to-slot-controls" id="addToSlotControls">
           <label>
-            Add a saved meal
+            Search saved meals
+            <input id="mealSearchInput" type="search" autocomplete="off" placeholder="Type a meal name" aria-controls="mealSelect">
+          </label>
+          <label>
+            Choose a meal
             <select id="mealSelect"></select>
           </label>
+          <p class="slot-message" id="mealSearchMessage" role="status" hidden>No meals match your search.</p>
           <button class="button" id="addToSlotButton" value="add" type="submit">Add to this slot</button>
         </div>
         <div class="modal-actions">
@@ -109,6 +114,6 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <script src="app.js?v=20260930-5"></script>
+    <script src="app.js?v=20260930-6"></script>
   </body>
 </html>

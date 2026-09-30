@@ -30,7 +30,9 @@ const saveMealButton = document.querySelector("#saveMealButton");
 const assignDialog = document.querySelector("#assignDialog");
 const assignForm = document.querySelector("#assignForm");
 const assignSlotLabel = document.querySelector("#assignSlotLabel");
+const mealSearchInput = document.querySelector("#mealSearchInput");
 const mealSelect = document.querySelector("#mealSelect");
+const mealSearchMessage = document.querySelector("#mealSearchMessage");
 const assignedMeals = document.querySelector("#assignedMeals");
 const addToSlotControls = document.querySelector("#addToSlotControls");
 const addToSlotButton = document.querySelector("#addToSlotButton");
@@ -97,6 +99,7 @@ function updateMealDuplicateWarning() {
 }
 
 mealNameInput.addEventListener("input", updateMealDuplicateWarning);
+mealSearchInput.addEventListener("input", updateMealSearchResults);
 
 document.querySelector("#previousWeekButton").addEventListener("click", () => {
   state.weekStart = addDays(state.weekStart, -7);
@@ -434,9 +437,43 @@ async function updateSlotMeals(slotKey, ids, message) {
   if (!saved) {
     setSlotMealIds(slotKey, previousIds);
     render();
+  } else {
+    mealSearchInput.value = "";
   }
   state.assignmentSaving = false;
   renderAssignDialog();
+}
+
+function updateMealSearchResults() {
+  const slot = state.selectedSlot;
+  if (!slot) {
+    return;
+  }
+
+  const assignedIds = getAssignedMealIds(slot.key);
+  const availableMeals = state.meals
+    .filter(meal => !assignedIds.includes(meal.id))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+  const query = normalizedMealName(mealSearchInput.value);
+  const matchingMeals = availableMeals.filter(meal => normalizedMealName(meal.name).includes(query));
+  const previousSelection = mealSelect.value;
+  mealSelect.replaceChildren();
+  matchingMeals.forEach(meal => {
+    const option = document.createElement("option");
+    option.value = meal.id;
+    option.textContent = meal.name;
+    mealSelect.append(option);
+  });
+  if (matchingMeals.some(meal => meal.id === previousSelection)) {
+    mealSelect.value = previousSelection;
+  }
+
+  const canAdd = assignedIds.length < 2 && availableMeals.length > 0;
+  addToSlotControls.hidden = !canAdd;
+  mealSearchMessage.hidden = !canAdd || matchingMeals.length > 0;
+  mealSearchInput.disabled = state.assignmentSaving || !canAdd;
+  mealSelect.disabled = state.assignmentSaving || !canAdd || matchingMeals.length === 0;
+  addToSlotButton.disabled = state.assignmentSaving || !canAdd || matchingMeals.length === 0;
 }
 
 function renderAssignDialog() {
@@ -481,29 +518,16 @@ function renderAssignDialog() {
     assignedMeals.append(message);
   }
 
-  const availableMeals = state.meals
-    .filter(meal => !assignedIds.includes(meal.id))
-    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
-  mealSelect.replaceChildren();
-  availableMeals.forEach(meal => {
-    const option = document.createElement("option");
-    option.value = meal.id;
-    option.textContent = meal.name;
-    mealSelect.append(option);
-  });
-
-  const canAdd = assignedIds.length < 2 && availableMeals.length > 0;
-  addToSlotControls.hidden = !canAdd;
-  mealSelect.disabled = state.assignmentSaving || !canAdd;
-  addToSlotButton.disabled = state.assignmentSaving || !canAdd;
+  updateMealSearchResults();
 }
 
 function openAssignDialog(slot) {
   state.selectedSlot = slot;
   assignSlotLabel.textContent = `${slot.day}, ${formatDate(slot.date)} - ${slot.mealType}`;
+  mealSearchInput.value = "";
   renderAssignDialog();
   assignDialog.showModal();
-  const focusTarget = !mealSelect.disabled ? mealSelect : assignedMeals.querySelector("button") || assignDialog.querySelector('[value="cancel"]');
+  const focusTarget = !mealSearchInput.disabled ? mealSearchInput : assignedMeals.querySelector("button") || assignDialog.querySelector('[value="cancel"]');
   focusTarget?.focus();
 }
 
