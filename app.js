@@ -6,6 +6,7 @@ const state = {
   meals: [],
   assignments: {},
   selectedSlot: null,
+  expandedMealId: null,
   editingMealId: null,
   mealChoiceId: null,
   mealOptionIndex: -1,
@@ -335,8 +336,8 @@ function renderPlanner() {
         cell.addEventListener("click", () => openAssignDialog({ key, day, date, mealType }));
         meals.forEach(meal => {
           const row = document.createElement("div");
-          const referenceUrl = getReferenceUrl(meal.notes);
-          row.className = `slot-meal-row${referenceUrl ? " has-reference" : ""}`;
+          const hasNotes = Boolean(String(meal.notes || "").trim());
+          row.className = `slot-meal-row${hasNotes ? " has-reference" : ""}`;
           const openButton = document.createElement("button");
           openButton.type = "button";
           openButton.className = "slot-meal-open";
@@ -344,19 +345,18 @@ function renderPlanner() {
           openButton.setAttribute("aria-label", `Change ${day} ${mealType} meals`);
           row.append(openButton);
 
-          if (referenceUrl) {
-            const referenceLink = document.createElement("a");
-            referenceLink.className = "reference-button";
-            referenceLink.href = referenceUrl;
-            referenceLink.target = "_blank";
-            referenceLink.rel = "noopener noreferrer";
-            referenceLink.textContent = "🔗";
-            referenceLink.title = "Open recipe reference";
-            referenceLink.setAttribute("aria-label", `Open recipe reference for ${meal.name}`);
-            referenceLink.addEventListener("click", event => {
+          if (hasNotes) {
+            const noteButton = document.createElement("button");
+            noteButton.type = "button";
+            noteButton.className = "reference-button";
+            noteButton.textContent = getReferenceUrl(meal.notes) ? "🔗" : "📝";
+            noteButton.title = "View saved meal notes";
+            noteButton.setAttribute("aria-label", `View notes for ${meal.name}`);
+            noteButton.addEventListener("click", event => {
               event.stopPropagation();
+              showMealReference(meal.id);
             });
-            row.append(referenceLink);
+            row.append(noteButton);
           }
           cell.append(row);
         });
@@ -379,7 +379,7 @@ function renderMeals() {
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
     .forEach(meal => {
       const card = document.createElement("article");
-      card.className = "meal-card";
+      card.className = `meal-card${state.expandedMealId === meal.id ? " expanded" : ""}`;
       card.dataset.mealId = meal.id;
       card.innerHTML = `
         <div class="meal-card-content">
@@ -412,6 +412,26 @@ function getReferenceUrl(notes) {
   }
 }
 
+function showMealReference(mealId) {
+  state.expandedMealId = mealId;
+  renderMeals();
+  const card = Array.from(mealList.children).find(item => item.dataset.mealId === mealId);
+  if (!card) {
+    return;
+  }
+
+  card.classList.add("reference-highlight");
+  requestAnimationFrame(() => {
+    card.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      block: "start",
+      inline: "nearest",
+    });
+    card.querySelector(".meal-card-open")?.focus({ preventScroll: true });
+  });
+  setTimeout(() => card.classList.remove("reference-highlight"), 2200);
+}
+
 function openDeleteMealDialog(mealId) {
   const meal = state.meals.find(item => item.id === mealId);
   if (!meal) {
@@ -430,6 +450,10 @@ async function deleteMeal(mealId) {
   Object.keys(state.assignments).forEach(slotKey => {
     setSlotMealIds(slotKey, getAssignedMealIds(slotKey).filter(id => id !== mealId));
   });
+
+  if (state.expandedMealId === mealId) {
+    state.expandedMealId = null;
+  }
 
   if (!await saveData("Meal deleted")) {
     state.meals = previousMeals;
