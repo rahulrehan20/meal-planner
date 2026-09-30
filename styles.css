@@ -316,6 +316,7 @@ h2 {
   border: 0;
   border-radius: 8px;
   background: transparent;
+  text-decoration: none;
   cursor: pointer;
   font-size: 1.15rem;
 }
@@ -330,6 +331,8 @@ h2 {
 }
 
 .meal-card-notes a {
+  position: relative;
+  z-index: 2;
   color: var(--accent-dark);
   font-weight: 700;
 }
@@ -359,23 +362,34 @@ h2 {
   transition: transform 120ms ease;
 }
 
-.meal-card-toggle {
+.meal-card-content {
   display: grid;
   gap: 8px;
-  width: 100%;
   min-height: 94px;
   padding: 14px 42px 14px 14px;
+}
+
+.meal-card-open {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
   border: 0;
+  border-radius: 8px;
   background: transparent;
-  color: var(--text);
   cursor: pointer;
-  text-align: left;
+}
+
+.meal-card-open:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .meal-delete-button {
   position: absolute;
   top: 8px;
   right: 8px;
+  z-index: 3;
   display: grid;
   width: 28px;
   height: 28px;
@@ -398,24 +412,6 @@ h2 {
   line-height: 1.4;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-}
-
-.meal-card.expanded .meal-card-notes {
-  display: block;
-  overflow: visible;
-}
-
-.meal-card-actions {
-  padding: 0 14px 14px;
-}
-
-.meal-card-edit {
-  width: 100%;
-}
-
-.meal-card.reference-highlight {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
 }
 
 .assigned-meals {

@@ -6,7 +6,6 @@ const state = {
   meals: [],
   assignments: {},
   selectedSlot: null,
-  expandedMealId: null,
   editingMealId: null,
   pendingDeleteMealId: null,
   assignmentSaving: false,
@@ -298,7 +297,8 @@ function renderPlanner() {
         cell.addEventListener("click", () => openAssignDialog({ key, day, date, mealType }));
         meals.forEach(meal => {
           const row = document.createElement("div");
-          row.className = `slot-meal-row${hasReferenceLink(meal.notes) ? " has-reference" : ""}`;
+          const referenceUrl = getReferenceUrl(meal.notes);
+          row.className = `slot-meal-row${referenceUrl ? " has-reference" : ""}`;
           const openButton = document.createElement("button");
           openButton.type = "button";
           openButton.className = "slot-meal-open";
@@ -306,18 +306,19 @@ function renderPlanner() {
           openButton.setAttribute("aria-label", `Change ${day} ${mealType} meals`);
           row.append(openButton);
 
-          if (hasReferenceLink(meal.notes)) {
-            const referenceButton = document.createElement("button");
-            referenceButton.type = "button";
-            referenceButton.className = "reference-button";
-            referenceButton.textContent = "🔗";
-            referenceButton.title = "View recipe reference";
-            referenceButton.setAttribute("aria-label", `View recipe reference for ${meal.name}`);
-            referenceButton.addEventListener("click", event => {
+          if (referenceUrl) {
+            const referenceLink = document.createElement("a");
+            referenceLink.className = "reference-button";
+            referenceLink.href = referenceUrl;
+            referenceLink.target = "_blank";
+            referenceLink.rel = "noopener noreferrer";
+            referenceLink.textContent = "🔗";
+            referenceLink.title = "Open recipe reference";
+            referenceLink.setAttribute("aria-label", `Open recipe reference for ${meal.name}`);
+            referenceLink.addEventListener("click", event => {
               event.stopPropagation();
-              showMealReference(meal.id);
             });
-            row.append(referenceButton);
+            row.append(referenceLink);
           }
           cell.append(row);
         });
@@ -339,52 +340,38 @@ function renderMeals() {
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
     .forEach(meal => {
-      const isExpanded = state.expandedMealId === meal.id;
       const card = document.createElement("article");
-      card.className = `meal-card${isExpanded ? " expanded" : ""}`;
+      card.className = "meal-card";
       card.dataset.mealId = meal.id;
       card.innerHTML = `
-        <button class="meal-delete-button" type="button" aria-label="Delete ${escapeHtml(meal.name)}" title="Delete">x</button>
-        <button class="meal-card-toggle" type="button" aria-expanded="${isExpanded}">
+        <div class="meal-card-content">
           <strong>${escapeHtml(meal.name)}</strong>
           <span class="meal-card-notes">${meal.notes ? linkifyText(meal.notes) : "No notes saved."}</span>
-        </button>
-        ${isExpanded ? `<div class="meal-card-actions"><button class="button ghost meal-card-edit" type="button">${meal.notes ? "Edit meal" : "Add notes or edit name"}</button></div>` : ""}
+        </div>
+        <button class="meal-card-open" type="button" aria-label="Edit ${escapeHtml(meal.name)}"></button>
+        <button class="meal-delete-button" type="button" aria-label="Delete ${escapeHtml(meal.name)}" title="Delete">x</button>
       `;
-      card.querySelector(".meal-card-toggle").addEventListener("click", () => {
-        state.expandedMealId = state.expandedMealId === meal.id ? null : meal.id;
-        renderMeals();
-      });
-      card.querySelectorAll(".meal-card-notes a").forEach(link => {
-        link.addEventListener("click", event => event.stopPropagation());
-      });
+      card.querySelector(".meal-card-open").addEventListener("click", () => openEditMealDialog(meal.id));
       card.querySelector(".meal-delete-button").addEventListener("click", event => {
         event.stopPropagation();
         openDeleteMealDialog(meal.id);
       });
-      card.querySelector(".meal-card-edit")?.addEventListener("click", () => openEditMealDialog(meal.id));
       mealList.append(card);
     });
 }
 
-function hasReferenceLink(notes) {
-  return /\b(?:https?:\/\/|www\.|youtube\.com\/|youtu\.be\/)\S+/i.test(notes || "");
-}
-
-function showMealReference(mealId) {
-  state.expandedMealId = mealId;
-  renderMeals();
-  const card = Array.from(mealList.children).find(item => item.dataset.mealId === mealId);
-  if (!card) {
-    return;
+function getReferenceUrl(notes) {
+  const rawUrl = String(notes || "").match(/\b(?:https?:\/\/|www\.|youtube\.com\/|youtu\.be\/)\S+/i)?.[0];
+  if (!rawUrl) {
+    return null;
   }
-
-  card.classList.add("reference-highlight");
-  requestAnimationFrame(() => {
-    card.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
-    card.querySelector(".meal-card-toggle")?.focus({ preventScroll: true });
-  });
-  setTimeout(() => card.classList.remove("reference-highlight"), 2200);
+  const urlText = rawUrl.replace(/[),.!?;:]+$/, "");
+  try {
+    const url = new URL(/^https?:\/\//i.test(urlText) ? urlText : `https://${urlText}`);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : null;
+  } catch {
+    return null;
+  }
 }
 
 function openDeleteMealDialog(mealId) {
@@ -405,10 +392,6 @@ async function deleteMeal(mealId) {
   Object.keys(state.assignments).forEach(slotKey => {
     setSlotMealIds(slotKey, getAssignedMealIds(slotKey).filter(id => id !== mealId));
   });
-
-  if (state.expandedMealId === mealId) {
-    state.expandedMealId = null;
-  }
 
   if (!await saveData("Meal deleted")) {
     state.meals = previousMeals;
